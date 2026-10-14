@@ -1,0 +1,46 @@
+name: gold-bot
+
+on:
+  schedule:
+    - cron: "*/5 7-20 * * 1-5"   # every 5 min, Mon-Fri, 07:00-20:59 UTC
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Send a test message only"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gold-bot
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install requests pandas numpy
+
+      - name: Run bot
+        env:
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TEST_MODE: ${{ inputs.test }}
+        run: python bot.py
+
+      - name: Save state
+        run: |
+          git config user.name "gold-bot"
+          git config user.email "gold-bot@users.noreply.github.com"
+          git add state.json || true
+          git diff --cached --quiet || (git commit -m "update state" && git push)
